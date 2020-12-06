@@ -1,6 +1,14 @@
+from os import path
 from plantcv import plantcv as pcv
 
-def generateMask(input, output): 
+from modules.indexToFile import indexToFile
+
+MASK_TYPES = {
+  'BW':0,
+  'COLORED': 1
+}
+
+def generateMask(input, output, maskType=MASK_TYPES['BW']): 
   pcv.params.debug=True #set debug mode
   # pcv.params.debug_outdir="./output.txt" #set output directory
 
@@ -8,7 +16,7 @@ def generateMask(input, output):
   # Inputs:
   #   filename - Image file to be read in 
   #   mode - Return mode of image; either 'native' (default), 'rgb', 'gray', 'envi', or 'csv'
-  img, path, filename = pcv.readimage(filename="./pi-shot.jpg", mode='rgb')
+  img, path, filename = pcv.readimage(filename=input, mode='rgb')
 
   s = pcv.rgb2gray_hsv(rgb_img=img, channel='s')
 
@@ -47,14 +55,21 @@ def generateMask(input, output):
   # Join the thresholded saturation and blue-yellow images (OR)
   ab1 = pcv.logical_or(bin_img1=maskeda_thresh, bin_img2=maskedb_thresh)
   ab = pcv.logical_or(bin_img1=maskeda_thresh1, bin_img2=ab1)
-  pcv.print_image(ab, filename="ab.jpg")
+  if maskType == MASK_TYPES['BW']:
+    pcv.print_image(ab, filename=output)
+    return (True , None)
 
   # Fill small objects
   ab_fill = pcv.fill(bin_img=ab, size=200)
 
   # Apply mask (for VIS images, mask_color=white)
-  masked2 = pcv.apply_mask(img=masked, mask=ab_fill, mask_color='white')
-  pcv.print_image(masked2, filename="masked2.jpg")
+  masked2 = pcv.apply_mask(img=masked, mask=ab_fill, mask_color='black')
+  if maskType == MASK_TYPES['COLORED']:
+    pcv.print_image(masked2, filename=output)
+    return (True , None)
+
+  return (False , 'Unknown mask type.')
+
   """
   # Identify objects
   id_objects, obj_hierarchy = pcv.find_objects(img=masked2, mask=ab_fill)
@@ -91,3 +106,15 @@ def generateMask(input, output):
   pcv.print_image(pseudocolored_img, filename="pseudocolored_img.jpg")
   pcv.print_results(filename="result.txt")
   """
+
+def generateMasks(inputs, dst="./output/"):
+  masks = [] 
+  for index, input in enumerate(inputs):
+    mask = f"{dst}{indexToFile(index)}.jpg"
+    if path.isfile(mask) == False:
+      print(f"generate mask {index}/{len(inputs)-1}")
+      generateMask(input, mask)
+    else:
+      print(f"skip generate mask {index}/{len(inputs)-1}")
+    masks.append(mask)
+    
