@@ -117,4 +117,5 @@ def generateMasks(inputs, dst="./output/"):
     else:
       print(f"skip generate mask {index}/{len(inputs)-1}")
     masks.append(mask)
+  return masks
     
